@@ -1,38 +1,35 @@
 import csv
 import os
+import random
 import tkinter as tk
 from tkinter import messagebox, filedialog
-
 import numpy as np
 from PIL import Image, ImageTk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-
 
 def generate_realistic_eeg_data():
     time = np.linspace(0, 1, 100)
     eeg_data = np.sin(2 * np.pi * 10 * time) + np.random.randn(100) * 0.1
     return eeg_data
 
-
 class MainWindow(tk.Frame):
     def __init__(self, parent, exit_callback):
         super().__init__(parent)
-        self.left_frame = None
-        self.right_frame = None
-        self.ax = None
-        self.current_action = None
-        self.small_icon_label = None
-        self.actions = None
-        self.progress_bar = None
-        self.image_label = None
-        self.instruction_label = None
-        self.canvas = None
-        self.fig = None
         self.parent = parent
         self.exit_callback = exit_callback
         self.calibration_data = []
         self.calibrating = False  # Track calibration state
+        self.electrode_status = [
+            {"name": "Electrode 1", "status": "Active"},
+            {"name": "Electrode 2", "status": "Active"},
+            {"name": "Electrode 3", "status": "Inactive"},
+            {"name": "Electrode 4", "status": "Active"},
+            {"name": "Electrode 5", "status": "Inactive"},
+            {"name": "Electrode 6", "status": "Active"},
+            {"name": "Electrode 7", "status": "Inactive"},
+            {"name": "Electrode 8", "status": "Active"},
+        ]
         self.initUI()
 
     def initUI(self):
@@ -64,6 +61,8 @@ class MainWindow(tk.Frame):
         self.start_button = tk.Button(self.right_frame, text="Start Calibration", command=self.start_calibration)
         self.start_button.pack(pady=10)
         tk.Button(self.right_frame, text="Save Data", command=self.save_data).pack(pady=10)
+        self.electrode_status_button = tk.Button(self.right_frame, text="Electrode Status", command=self.show_electrode_status)
+        self.electrode_status_button.pack(pady=10)
 
         # Small icon in the bottom left corner
         self.small_icon_label = tk.Label(self.left_frame, bg="white")
@@ -73,6 +72,7 @@ class MainWindow(tk.Frame):
         if not self.calibrating:  # Only start if not already calibrating
             self.calibrating = True
             self.start_button.config(text="Calibrating...", state=tk.DISABLED)
+            self.electrode_status_button.config(state=tk.DISABLED)
             self.actions = ["Left Click", "Right Click", "Scroll Up", "Scroll Down"]
             self.calibration_data = {action: [] for action in self.actions}
             self.current_action = 0
@@ -136,6 +136,7 @@ class MainWindow(tk.Frame):
         self.image_label.config(image='')
         self.image_label.image = None
         self.start_button.config(text="Start Calibration", state=tk.NORMAL)
+        self.electrode_status_button.config(state=tk.NORMAL)
         self.calibrating = False  # Reset calibration state
 
     def save_data(self):
@@ -155,6 +156,46 @@ class MainWindow(tk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save data: {e}")
 
+    def show_electrode_status(self):
+        self.randomize_electrode_status()
+        self.clear_frame()
+        electrode_status_frame = ElectrodeStatusPage(self, self.electrode_status, self.show_calibration_page)
+        electrode_status_frame.pack(fill=tk.BOTH, expand=1)
+
+    def randomize_electrode_status(self):
+        for electrode in self.electrode_status:
+            electrode["status"] = random.choice(["Active", "Inactive"])
+
+    def show_calibration_page(self):
+        self.clear_frame()
+        self.initUI()
+        self.calibrating = False  # Reset calibration state
+
+    def clear_frame(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+        if self.small_icon_label and self.small_icon_label.winfo_exists():
+            self.small_icon_label.place_forget()
+
+class ElectrodeStatusPage(tk.Frame):
+    def __init__(self, parent, electrode_status, back_callback):
+        super().__init__(parent)
+        self.electrode_status = electrode_status
+        self.back_callback = back_callback
+        self.initUI()
+
+    def initUI(self):
+        tk.Label(self, text="Electrode Status", font=("Helvetica", 20)).pack(pady=20)
+
+        grid_frame = tk.Frame(self)
+        grid_frame.pack()
+
+        for i, electrode in enumerate(self.electrode_status):
+            color = "green" if electrode["status"] == "Active" else "red"
+            label = tk.Label(grid_frame, text=electrode["name"], bg=color, font=("Helvetica", 15), width=15)
+            label.grid(row=i//4, column=i%4, padx=10, pady=10)
+
+        tk.Button(self, text="Back to Calibration", command=self.back_callback).pack(pady=20)
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -162,3 +203,4 @@ if __name__ == "__main__":
     app = MainWindow(root, exit_callback=root.quit)
     app.pack(fill="both", expand=True)
     root.mainloop()
+
